@@ -16,6 +16,15 @@ app.add_middleware(
 def get_names():
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute("SELECT DISTINCT name FROM district_boundary ORDER BY name;")
+    names = [row[0] for row in cur.fetchall()]
+    conn.close()
+    return names
+
+@app.get("/get-bng")
+def get_names():
+    conn = get_connection()
+    cur = conn.cursor()
     cur.execute("SELECT DISTINCT subroad FROM bengaluru ORDER BY subroad;")
     names = [row[0] for row in cur.fetchall()]
     conn.close()
@@ -49,3 +58,28 @@ def get_points(name: str):
     finally:
         conn.close()
 
+@app.get("/get-bngpoints")
+def get_points(name: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    print(f"Fetching points for district: {name}")  # Debug print
+    try:
+        cur.execute("""
+            SELECT jsonb_build_object(
+                'type', 'FeatureCollection',
+                'features', jsonb_agg(ST_AsGeoJSON(p.*)::jsonb)
+            )
+            FROM points p
+            JOIN bengaluru poly ON poly.subroad = %s
+            WHERE ST_Within(p.geom, poly.geom);
+        """, (name,))
+        result = cur.fetchone()[0]
+        print("Result:", result)  # Debug print
+
+        if result is None:
+            return {"error": f"No data found for district: {name}"}
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
