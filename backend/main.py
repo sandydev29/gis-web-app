@@ -20,7 +20,7 @@ def get_names():
     names = [row[0] for row in cur.fetchall()]
     conn.close()
     return names
-
+# Getting all points
 @app.get("/get-all")
 def get_names1():
     conn = get_connection()
@@ -30,6 +30,7 @@ def get_names1():
     conn.close()
     return names
 
+# Sub Road of Bengaluru
 @app.get("/get-bng")
 def get_names():
     conn = get_connection()
@@ -40,7 +41,7 @@ def get_names():
     return names
 
 
-
+# Fetching District Points by ditrict name
 @app.get("/get-points")
 def get_points(name: str):
     conn = get_connection()
@@ -67,6 +68,7 @@ def get_points(name: str):
     finally:
         conn.close()
 
+# Fetching Bng Points by Bng name
 @app.get("/get-bngpoints")
 def get_points(name: str):
     conn = get_connection()
@@ -93,6 +95,7 @@ def get_points(name: str):
     finally:
         conn.close()
 
+# Fetching Points by  name
 @app.get("/get-searchpoints")
 def get_points(name: str):
     conn = get_connection()
@@ -106,6 +109,33 @@ def get_points(name: str):
             )
             FROM points p
             WHERE name = %s;
+        """, (name,))
+        result = cur.fetchone()[0]
+        print("Result:", result)  # Debug print
+
+        if result is None:
+            return {"error": f"No data found for district: {name}"}
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+# Fetching Dist Points by Bng name
+@app.get("/get-distpoints")
+def get_points(name: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    print(f"Fetching points for district: {name}")  # Debug print
+    try:
+        cur.execute("""
+            SELECT jsonb_build_object(
+                'type', 'FeatureCollection',
+                'features', jsonb_agg(ST_AsGeoJSON(p.*)::jsonb)
+            )
+            FROM points p
+            JOIN district_boundary poly ON poly.name = %s
+            WHERE ST_Within(p.geom, poly.geom);
         """, (name,))
         result = cur.fetchone()[0]
         print("Result:", result)  # Debug print
